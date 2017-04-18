@@ -23,8 +23,8 @@ class Router(object):
         self.num = num
         self.AdjList = []
         self.table = []
-        self.interation = 0;
-        self.updated = False;
+        self.interation = 0
+        self.updated = False
         self.costList = defaultdict(lambda: float('inf'))
     def getDist(self,dest):
         return self.destRoutes[dest]
@@ -183,20 +183,20 @@ def programStart(argv):
 
 #start of the first ALGORITHM
     numIterations = 0
-    converged = False;
-    eventlist_counter = 0;
+    converged = False
+    eventlist_counter = 0
     print(".......1st ALGORITHM......")
     while converged == False or numIterations <= max_event
         event_trigger = False
         if (numIterations in roundlist):
             for router in netWork:
-                firstarg = eventlist[eventlist_counter][1];
-                secarg = eventlist[eventlist_counter][2];
+                firstarg = eventlist[eventlist_counter][1]
+                secarg = eventlist[eventlist_counter][2]
                 thirdarg = eventlist[eventlist_counter][3]
                 router.update_event(numIterations, firstarg,secarg,thirdarg)
-            eventlist_counter++;
+            eventlist_counter++
             event_trigger = True;
-        oldnetWork = [];
+        oldnetWork = []
         for router in netWork:
             oldnetWork.append(copy.deepcopy(router))
             for neighbor in router.AdjList:
@@ -206,7 +206,7 @@ def programStart(argv):
                     router.new_update_table();
         numIteration++
 
-        numUpdate = 0;
+        numUpdate = 0
         for router in netWork:
             if rounter.updated == 0:
                 numUpdate++
