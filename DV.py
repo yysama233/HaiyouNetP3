@@ -48,8 +48,16 @@ def programStart(argv):
     if (len(argv)!=4):
         print("Invalid arguments")
         sys.exit()
+    #read the router file
     routerFile = argv[1]
     netWork = iniRouter(routerFile)
+    #read the change file
+    changeFile = argv[2]
+
+
+    #read the third instruction 0 for no details and 1 for details
+    details = argv[3]
+
     if not netWork:
         print("invalid router file")
         sys.exit()
