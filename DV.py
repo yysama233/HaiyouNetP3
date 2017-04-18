@@ -1,7 +1,8 @@
+from __future__ import print_function
 from string import *
 import sys
 from collections import defaultdict
-#from __future__ import print_function
+from copy import deepcopy
 
 class DV:
     def __init__(self, src, dst, cost, next_hop, num_hops):
@@ -16,15 +17,15 @@ class DV:
             self.next_hop == other.next_hop and self.num_hops == other.num_hops)
         return False
     def to_string(self):
-        print "(Distance vector", self.src, self.dst, self.cost, self.next_hop, self.num_hops, ")",
+        print("(Distance vector", self.src, self.dst, self.cost, self.next_hop, self.num_hops, ")\t", end= '')
 
 class Router(object):
     def __init__(self,num):
         self.num = num
         self.AdjList = []
         self.table = []
-        self.interation = 0;
-        self.updated = False;
+        self.interation = 0
+        self.updated = False
         self.costList = defaultdict(lambda: float('inf'))
     def getDist(self,dest):
         return self.destRoutes[dest]
@@ -35,8 +36,6 @@ class Router(object):
         self.costList[dest]=cost
     def rmRoute(self,dest):
         del destRoutes[dest]
-
-
 
     def Initialize_router_table(number_of_routers):
         self.table = []
@@ -115,6 +114,8 @@ class Router(object):
                     print("Convergence instability")
                     exit()
 
+
+# The method to initialize all routers in the network
 def iniRouter(routerFile):
     try:
         RouteF = open(routerFile,'r')
@@ -130,8 +131,9 @@ def iniRouter(routerFile):
         r1,r2,cost = line.split()
         netWork[int(r1)].addAdj(int(r2),int(cost))
         netWork[int(r2)].addAdj(int(r1),int(cost))
+    print(netWork)
     return netWork
-
+# The method to update event that read from file
 def update_event(self, src, dst, cost, iteration):
     update_dv = None
     if (self.id == src):
@@ -165,7 +167,6 @@ def programStart(argv):
     if not netWork:
         print("invalid router file")
         sys.exit()
-
     eventFile = argv[2]
     eventf = open(eventFile,"r")
     eventinput = eventf.readlines()
@@ -184,30 +185,31 @@ def programStart(argv):
 
 #start of the first ALGORITHM
     numIterations = 0
-    converged = False;
-    eventlist_counter = 0;
+    converged = False
+    eventlist_counter = 0
     print(".......1st ALGORITHM......")
     while converged == False or numIterations <= max_event:
         event_trigger = False
         if (numIterations in roundlist):
             for router in netWork:
-                firstarg = eventlist[eventlist_counter][1];
-                secarg = eventlist[eventlist_counter][2];
+                firstarg = eventlist[eventlist_counter][1]
+                secarg = eventlist[eventlist_counter][2]
                 thirdarg = eventlist[eventlist_counter][3]
                 router.update_event(numIterations, firstarg,secarg,thirdarg)
-            eventlist_counter += 1
+            eventlist_counter+=1
             event_trigger = True;
-        oldnetWork = [];
-        for router in netWork:
-            oldnetWork.append(copy.deepcopy(router))
+        oldnetWork = []
+
+        for idx,router in netWork.items():
+            oldnetWork.append(deepcopy(router))
             for neighbor in router.AdjList:
                 if router.num > netWork[neighbor - 1].num:
                     router.new_update_table()
                 else:
-                    router.new_update_table();
+                    router.new_update_table()
         numIteration += 1
 
-        numUpdate = 0;
+        numUpdate = 0
         for router in netWork:
             if rounter.updated == 0:
                 numUpdate += 1
