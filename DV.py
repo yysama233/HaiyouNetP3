@@ -24,18 +24,16 @@ class Router(object):
         self.num = num
         self.AdjList = []
         self.interation = 0
-        self.updated = False
-        self.costList = {}
+        self.costList = {self.num:0}
         self.destTable = {}
-    #def getDist(self,dest):
-    #    return self.destRoutes[dest]
-    #def addRoute(self,dest,dist):
-    #    self.destRoutes[dest]=dist
+
     def addAdj(self,dest,cost):
-        self.AdjList.append(dest)
-        self.costList[dest]=cost
-    def rmRoute(self,dest):
-        del destRoutes[dest]
+        if (dest not in self.AdjList):
+            self.AdjList.append(dest)
+        self.updateCost(dest,cost)
+    def rmAdj(self, dest):
+        self.AdjList = [x for x in self.AdjList if x != dest]
+        self.updateCost(dest,float('inf'))
     def updateCost(self,dest,cost):
         self.costList[dest] = cost
     def iniDestTable(self,numOfRouters):
@@ -50,16 +48,19 @@ class Router(object):
                 #print self.destTable[i]
             else:
                 #print "unknown"
-                self.destTable[i] = [-1,-1]
+                self.destTable[i] = [-1,float('inf')]
                 #print self.destTable[i]
             #print "finish dest ini\n"
     def toString(self,numOfRouters):
         out = "%d "%self.num
         for i in range(1,numOfRouters+1):
-            out += "%d,%d\t"%(self.destTable[i][0],self.destTable[i][1])
+            tempDist = self.destTable[i][1]
+            if self.destTable[i][1] == float('inf'):
+                tempDist = -1
+            out += "%d,%d\t"%(self.destTable[i][0],tempDist)
         return out
     def updateDest(self,dest,nextHop,distance):
-        self.destTable[nextHop,dest]
+        self.destTable[dest] = [nextHop,distance]
     # def Initialize_router_table(self,number_of_routers):
     #     self.table = []
     #     for r in range(number_of_routers):
@@ -158,7 +159,7 @@ def iniRouter(routerFile):
         netWork[int(r1)].addAdj(int(r2),int(cost))
         netWork[int(r2)].addAdj(int(r1),int(cost))
         l =  RouteF.readline()
-    print "add cost finished"
+    #print "add cost finished"
     for i in range(1,ttlRNum + 1):
         #print "ini router destance",i
         netWork[i].iniDestTable(ttlRNum)
@@ -208,12 +209,53 @@ def iniEvent(eventFile):
 #         update_dv = DV(self.id, update_dst, cost, update_dst, 1)
 #         update_dv_list = [update_dv]
 #     self.new_update_table(update_dv_list, iteration)
+def calculateDV(netWorkbasic,srcRouter, poison=False, split=False):
+    Overallchanged = False
+    for destNum,destRouter in netWorkbasic.items():
+        localChanged = False
+        nextHop,minCost = srcRouter.destTable[destNum]
+        # check all neighbours if they can reach destination
+        for adjNum in srcRouter.AdjList:
+            adjCost = srcRouter.costList[adjNum]
+            adjDest = netWorkbasic[adjNum].destTable[destNum][1]
+            disFromAdj = adjDest + adjCost
+            if disFromAdj < minCost:
+                print "update!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", disFromAdj
+                minCost = disFromAdj
+                nextHop = adjNum
+                Overallchanged = True
+                localChanged = True
+        if localChanged:
+            srcRouter.updateDest(destNum,nextHop,minCost)
+    return Overallchanged
+
+
+# choosing a routing protocol
+# default is not recalculate and is basic protocol
+def routingProtocol(netWorkbasic, numIterations, basicF, flag, recalculate=False, poison=False, split=False):
+    #basic if poison == false and split == false
+    Overallchanged = False
+
+    if flag == 1:
+        printNet(netWorkbasic,numIterations,basicF)
+
+    # iteration all source router
+    print "--------------------------protocol start--------------------------"
+    for srcNum,srcRouter in netWorkbasic.items():
+        # check distance vector for every destination
+        localChanged = calculateDV(netWorkbasic,srcRouter)
+        if localChanged:
+            Overallchanged = True
+    print "--------------------------protocol end----------------------------"
+    return Overallchanged
+
 def printNet(network,numIter,outFile):
     outFile.write("Round: %d"%numIter)
     print ("Round: %d"%numIter)
     for idx,router in network.items():
         outFile.write(router.toString(len(network)))
         print (router.toString(len(network)))
+
 def programStart(argv):
     if (len(argv)!=4):
         print("Invalid arguments")
@@ -226,7 +268,7 @@ def programStart(argv):
     netWorksplit = deepcopy(netWorkbasic)
     netWorkpoison = deepcopy(netWorkbasic)
     eventFile = argv[2]
-    eventlist,roundlist,max_event = iniEvent(eventFile)
+    eventlist,roundlist, max_event = iniEvent(eventFile)
     flag = int(argv[3])
     if flag == 1:
         basicF = open("output-detailed-basic.txt",'w')
@@ -241,42 +283,37 @@ def programStart(argv):
     numIterations = 0
     converged = False
     eventlist_counter = 0
-   
-    while converged == False or numIterations <= max_event:
+    # need to change max_event here
+    while not converged or numIterations <= max_event:
+
+        #check event
         event_trigger = False
         if (numIterations in roundlist):
             r1 = eventlist[eventlist_counter][1]
             r2 = eventlist[eventlist_counter][2]
-
             newCost = eventlist[eventlist_counter][3]
-            network[r1].updateCost(r2,newCost)
-            network[r2].updateCost(r1,newCost)
-
+            if newCost != -1:
+                netWorkbasic[r1].addAdj(r2,newCost)
+                netWorkbasic[r2].addAdj(r1,newCost)
+            else:
+                netWorkbasic[r1].rmAdj(r2)
+                netWorkbasic[r2].rmAdj(r1)
+            print r1, r2, newCost
             eventlist_counter+=1
-            event_trigger = True;
+            event_trigger = True
+            converged = False
+            # recalculate dv for r1 and r2
+            print "---------------------------recalculate---------------------------------"
+            calculateDV(netWorkbasic,netWorkbasic[r1])
+            calculateDV(netWorkbasic,netWorkbasic[r2])
+            print "---------------------------finish recalculation-------------------------"
 
-        #basic
-        Overchanged = False
-        if flag == 1:
-            printNet(netWorkbasic,numIterations,basicF)
-        for srcNum,srcRouter in netWorkbasic.items():
-             for destNum,destRouter in netWorkbasic.items():
-                localChanged = False
-                nextHop,minCost = srcRouter.destTable[destNum]
-                
-                for adjNum in srcRouter.AdjList:
-                    adjCost = srcRouter.costList[adj]
-                    adjDest = netWorkbasic[adj].destTable[destNum][1]
-                    disFromAdj = adjDest + adjCost
-                    if disFromAdj < minCost:
-                        minCost = disFromAdj
-                        nextHop = adjNum
-                        changed = True
-                        localChanged = True
-                if localChanged:
-                    srcRouter.updateDest(destNum,nextHop,minCost)
+        OverallchangedBasic = routingProtocol(netWorkbasic, numIterations, basicF, flag)
+        print "overall changed? ", OverallchangedBasic
+        if not OverallchangedBasic:
+            converged = True
 
-        break
+        numIterations += 1
     basicF.close()
 
 if __name__ == "__main__":
