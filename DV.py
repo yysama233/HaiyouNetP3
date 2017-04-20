@@ -126,7 +126,7 @@ def iniEvent(eventFile):
 
 
 # calculateDV method to calculate a single source routers distance vectors
-def calculateDV(netWork,srcRouter, poison=False, split=False):
+def calculateDV(oldnetWork, netWork,srcRouter, poison=False, split=False):
     Overallchanged = False
     for destNum,destRouter in netWork.items():
         if destNum == srcRouter.num:
@@ -136,12 +136,13 @@ def calculateDV(netWork,srcRouter, poison=False, split=False):
 
         # check all neighbours if they can reach destination
         for adjNum in srcRouter.AdjList:
+            #print "new network:", netWork[adjNum].destTable[destNum], "old network: ", oldnetWork[adjNum].destTable[destNum]
+            #print netWork[adjNum].destTable[destNum] == oldnetWork[adjNum].destTable[destNum]
             adjCost = srcRouter.costList[adjNum]
-            adjDest = netWork[adjNum].destTable[destNum][1]
-            #print netWork[adjNum].destTable[destNum]
-            adjNexthop = netWork[adjNum].destTable[destNum][0]
+            adjDest = oldnetWork[adjNum].destTable[destNum][1]
+            adjNexthop = oldnetWork[adjNum].destTable[destNum][0]
             #print "adjNextHop:", adjNexthop, "src:", srcRouter.num
-            if netWork[adjNum].destTable[destNum][0] == srcRouter.num:
+            if oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num:
                 if poison:
                     print "poison!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", disFromAdj
                     adjDest = float('inf')
@@ -152,10 +153,10 @@ def calculateDV(netWork,srcRouter, poison=False, split=False):
                 else:
                     pass
 
-            if split and netWork[adjNum].destTable[destNum][0] == srcRouter.num:
-                print "wrong way, should not go here"
-            if poison and netWork[adjNum].destTable[destNum][0] == srcRouter.num and adjDest != float('inf'):
-                print "wrong poison reverse value"
+            # if split and oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num:
+            #     print "wrong way, should not go here"
+            # if poison and oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num and adjDest != float('inf'):
+            #     print "wrong poison reverse value"
 
             disFromAdj = adjDest + adjCost
 
@@ -168,7 +169,7 @@ def calculateDV(netWork,srcRouter, poison=False, split=False):
                     nextHop = adjNum
 
         if tempCost != minCost:
-            print "update!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", tempCost
+            print "update!", "src:", srcRouter.num, "nexthop:", nextHop,"dest:", destNum, "new distance:", tempCost
             Overallchanged = True
             srcRouter.updateDest(destNum,nextHop,tempCost)
 
@@ -194,9 +195,10 @@ def routingProtocol(netWork, numIterations, basicF, flag,poison=False, split=Fal
 
     # iteration all source router
     print "--------------------------protocol start--------------------------"
+    oldnetWork = deepcopy(netWork)
     for srcNum,srcRouter in netWork.items():
         # check distance vector for every destination
-        localChanged = calculateDV(netWork,srcRouter,poison=poison,split=split)
+        localChanged = calculateDV(oldnetWork,netWork,srcRouter,poison=poison,split=split)
         if localChanged:
             Overallchanged = True
     print "--------------------------protocol end----------------------------"
@@ -214,6 +216,7 @@ def printDelay(outFile, delay, protocol):
     out = "Convergence Delay:%d"%delay
     outFile.write(out)
     print protocol + ": " + out
+
 def increaseEventDelay(basicChange, splitChange, poisonChange ,eventDelay):
     if len(eventDelay) == 0:
         return;
@@ -294,12 +297,12 @@ def programStart(argv):
 
             # recalculate dv for r1 and r2
             print "--------------------------recalculate-----------------------------"
-            calculateDV(netWorkbasic,netWorkbasic[r1])
-            calculateDV(netWorkbasic,netWorkbasic[r2])
-            calculateDV(netWorksplit,netWorksplit[r1], split=True)
-            calculateDV(netWorksplit,netWorksplit[r2], split=True)
-            calculateDV(netWorkpoison,netWorkpoison[r1], poison=True)
-            calculateDV(netWorkpoison,netWorkpoison[r2], poison=True)
+            calculateDV(deepcopy(netWorkbasic),netWorkbasic,netWorkbasic[r1])
+            calculateDV(deepcopy(netWorkbasic),netWorkbasic,netWorkbasic[r2])
+            calculateDV(deepcopy(netWorksplit),netWorksplit,netWorksplit[r1], split=True)
+            calculateDV(deepcopy(netWorksplit),netWorksplit,netWorksplit[r2], split=True)
+            calculateDV(deepcopy(netWorkpoison),netWorkpoison,netWorkpoison[r1], poison=True)
+            calculateDV(deepcopy(netWorkpoison),netWorkpoison,netWorkpoison[r2], poison=True)
             print "--------------------------finish recalculation--------------------"
 
         OverallchangedBasic = routingProtocol(netWorkbasic, numIterations, basicF, flag)
@@ -312,18 +315,23 @@ def programStart(argv):
         if not (OverallchangedBasic or OverallchangedPoison or OverallchangedSplit):
             converged = True
 
+
         numIterations += 1
         # if there are any value in event delay, we increase the iteration number in event delay
         increaseEventDelay(OverallchangedBasic,OverallchangedPoison,OverallchangedSplit,eventDelay)
 
+
+    if flag==0:
+        printNet(netWorkbasic,numIterations-1,basicF)
+        printNet(netWorksplit,numIterations-1,splitF)
+        printNet(netWorkpoison,numIterations-1,reverse)
     for protocol,delay in eventDelay.items():
         if protocol == "basic":
             printDelay(basicF,delay, protocol)
         elif protocol == "poison":
             printDelay(reverse, delay, protocol)
         else:
-            printDelay(splitF, delay, protocol)
-
+            printDelay(splitF, delay, protocol) 
     basicF.close()
     splitF.close()
     reverse.close()
