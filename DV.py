@@ -72,80 +72,7 @@ class Router(object):
     def updateDest(self,dest,nextHop,distance):
         self.destTable[dest] = [nextHop,distance]
 
-    # def Initialize_router_table(self,number_of_routers):
-    #     self.table = []
-    #     for r in range(number_of_routers):
-    #         self.table.append([])
-    #         #the row of itself
-    #         if(r == (self.num - 1)):
-    #             for i in range(number_of_routers):
-    #                 if (i==(self.num-1)):
-    #                     self.table[r].append(DV(self.num, self,num, 0 , None, 0))
-    #                 elif((i+1) in self.AdjList):
-    #                     self.table[r].append(DV(self.num, (i+1), getDist(self.AdjList[i+1]), (i+1), 1))
-    #                 else:
-    #                     not_existing = DV(self.num, (i+1), None, None, None)
-    #                     self.table[r].append(not_existing)
-    #         else:
-    #             for i in range(number_of_routers):
-    #                 not_existing = DV(r+1, i+1, None, None,None)
-    #                 self.table[r].append(not_existing)
-
-    # def new_update_table(self, dv_list, iteration, old_cost = 0, flag = False):
-
-    #     for dv in dv_list:
-    #         self.table[dv.src - 1][dv.dst - 1] = dv
-
-    #     for i in range(len(self.table[self.id - 1])):
-    #         old_dv = self.table[self.id - 1][i]
-    #         dv = self.table[self.id - 1][i]
-    #         if (dv.dst != self.id):
-    #             dv_min = None
-    #             min_cost = None
-    #             dv_min_set = False
-    #             #pick the smallest path to the dst among all neighbors
-    #             for adjlist in self.neighbors: 
-    #                 if (dv_min_set == False and self.table[AdjList - 1][dv.dst - 1].cost is not None):
-    #                     dv_min_set = True
-    #                     dv_min = self.table[AdjList - 1][dv.dst - 1]
-    #                     min_cost = self.table[AdjList - 1][dv.dst - 1].cost + self.adjList[adjlist]
-    #                 elif (self.table[adjlist - 1][dv.dst - 1].cost is not None and
-    #                     self.table[adjlist - 1][dv.dst - 1].cost + self.adjList[adjlist] < min_cost):
-    #                     dv_min = self.table[adjlist - 1][dv.dst - 1]
-    #                     min_cost = self.table[adjlist - 1][dv.dst - 1].cost + self.adjList[adjlist]
-
-    #             if (not dv_min_set):
-    #                 none_dv = DV(self.id, dv.dst, None, None, None)
-    #                 self.table[self.num - 1][dv.dst - 1] = none_dv
-
-    #             elif (dv.dst in self.adjList and self.adjList[dv.dst] < min_cost):
-    #                 print("result")
-    #                 to_string(dv_min)
-    #                 print("")
-    #                 src = self.id
-    #                 dst = dv_min.dst
-    #                 cost = self.adjList[dv.dst]
-    #                 next_hop = dv.dst
-    #                 num_hops = 1
-    #                 self.table[self.num - 1][dv.dst - 1] = DV(src, dst, cost, next_hop, num_hops)
-    #             else:
-    #                 print("result, min cost", min_cost)
-    #                 to_string(dv_min)
-    #                 print("")
-    #                 src = self.id
-    #                 dst = dv_min.dst
-    #                 cost = min_cost
-    #                 next_hop = dv_min.src
-    #                 num_hops = dv_min.num_hops + 1
-    #                 self.table[self.num - 1][dv.dst - 1] = DV(src, dst, cost, next_hop, num_hops)
-    #             if (old_dv == self.table[self.num - 1][dv.dst - 1]):
-    #                 self.set_update(0, iteration)
-    #             else:
-    #                 self.set_update(1, iteration)
-    #             if (min_cost > 100):
-    #                 print("Convergence instability")
-    #                 exit()
-
+ 
 
 # The method to initialize all routers in the network
 def iniRouter(routerFile):
@@ -197,30 +124,6 @@ def iniEvent(eventFile):
         final_event = -1
     return eventlist,roundlist,final_event
 
-# The method to update event that read from file
-# def update_event(r1, r2, cost, iteration):
-#     update_dv = None
-#     if (self.id == r1):
-#         update_dst = r2
-#     elif (self.id == r2):
-#         update_dst = r1
-#     else:
-#         return
-#     update_dv_list = []
-#     if (cost == -1):
-#         cost = None
-#         update_dv = DV(self.id, update_dst, cost, None, None)
-#         update_dv_list.append(update_dv)
-#         for i in range(len(self.table[update_dst - 1])):
-#             self.table[update_dst - 1][i] = DV(update_dst, i + 1, None, None, None)
-#             update_dv_list.append(DV(update_dst, i + 1, None, None, None))
-#         del self.AdjList[update_dst]
-#     else:
-#         old_cost = self.AdjList[update_dst]
-#         self.AdjList[update_dst] = cost
-#         update_dv = DV(self.id, update_dst, cost, update_dst, 1)
-#         update_dv_list = [update_dv]
-#     self.new_update_table(update_dv_list, iteration)
 
 # calculateDV method to calculate a single source routers distance vectors
 def calculateDV(netWork,srcRouter, poison=False, split=False):
