@@ -4,21 +4,6 @@ import sys
 from collections import defaultdict
 from copy import deepcopy
 
-class DV:
-    def __init__(self, src, dst, cost, next_hop, num_hops):
-        self.src = src
-        self.dst = dst
-        self.cost = cost
-        self.next_hop = next_hop
-        self.num_hops = num_hops
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return (self.src == other.src and self.dst == other.dst and self.cost == other.cost and
-            self.next_hop == other.next_hop and self.num_hops == other.num_hops)
-        return False
-    #def to_string(self):
-     #   print("(Distance vector", self.src, self.dst, self.cost, self.next_hop, self.num_hops, ")\t", end= '')
-
 class Router(object):
     def __init__(self,num):
         self.num = num
@@ -48,31 +33,26 @@ class Router(object):
         for i in range (1,numOfRouters+1):
             if i == self.num:
                 #print "ini self"
-                self.destTable[i] = [0,0]
+                self.destTable[i] = [self.num,0,0]
                 #print self.destTable[i]
             elif i in self.AdjList:
                 #print "ini adj"
-                self.destTable[i] = [0,self.costList[i]]
+                self.destTable[i] = [i,self.costList[i],1]
                 #print self.destTable[i]
             else:
                 #print "unknown"
-                self.destTable[i] = [-1,float('inf')]
+                self.destTable[i] = [-1,float('inf'),-1]
 
                 #print self.destTable[i]
             #print "finish dest ini\n"
     def toString(self,numOfRouters):
         out = "%d\t"%self.num
         for i in range(1,numOfRouters+1):
-            tempDist = self.destTable[i][1]
-            if self.destTable[i][1] == float('inf'):
-                tempDist = -1
-            out += "%d,%d \t"%(self.destTable[i][0],tempDist)
+            out += "%d,%d \t"%(self.destTable[i][0],self.destTable[i][2])
         out += "\n"
         return out
-    def updateDest(self,dest,nextHop,distance):
-        self.destTable[dest] = [nextHop,distance]
-
- 
+    def updateDest(self,dest,nextHop,distance,numHops):
+        self.destTable[dest] = [nextHop,distance,numHops]
 
 # The method to initialize all routers in the network
 def iniRouter(routerFile):
@@ -131,7 +111,7 @@ def calculateDV(oldnetWork, netWork,srcRouter, poison=False, split=False):
     for destNum,destRouter in netWork.items():
         if destNum == srcRouter.num:
             continue
-        nextHop,minCost = srcRouter.destTable[destNum]
+        nextHop,minCost,numHops = srcRouter.destTable[destNum]
         tempCost = float('inf')
 
         # check all neighbours if they can reach destination
@@ -141,39 +121,34 @@ def calculateDV(oldnetWork, netWork,srcRouter, poison=False, split=False):
             adjCost = srcRouter.costList[adjNum]
             adjDest = oldnetWork[adjNum].destTable[destNum][1]
             adjNexthop = oldnetWork[adjNum].destTable[destNum][0]
+            adjNumHops = oldnetWork[adjNum].destTable[destNum][2]
             #print "adjNextHop:", adjNexthop, "src:", srcRouter.num
             if oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num:
                 if poison:
-                    print "poison!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", disFromAdj
+                    print "poison (sending infinity as distance)!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", adjDest + adjCost, "num hops:", adjNumHops+1
                     adjDest = float('inf')
                 elif split:
-                    print "split!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", disFromAdj
+                    print "split(not sending distance vector)!", "src:", srcRouter.num, "nexthop:", adjNum,"dest:", destNum, "new distance:", adjDest + adjCost, "num hops:", adjNumHops+1
                     # if split just don't send anything to that router
                     continue
                 else:
+                    #basic protocol
                     pass
-
-            # if split and oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num:
-            #     print "wrong way, should not go here"
-            # if poison and oldnetWork[adjNum].destTable[destNum][0] == srcRouter.num and adjDest != float('inf'):
-            #     print "wrong poison reverse value"
 
             disFromAdj = adjDest + adjCost
 
             # finding the minimum among all dv from src to dest through different hops
             if disFromAdj < tempCost:
                 tempCost = disFromAdj
-                if adjNum == destNum:
-                    nextHop = 0
-                else:
-                    nextHop = adjNum
+                nextHop = adjNum
+                numHops = adjNumHops+1
 
         if tempCost != minCost:
-            print "update!", "src:", srcRouter.num, "nexthop:", nextHop,"dest:", destNum, "new distance:", tempCost
+            print "update!", "src:", srcRouter.num, "nexthop:", nextHop,"dest:", destNum, "new distance:", tempCost,"num hops:", numHops 
             Overallchanged = True
-            srcRouter.updateDest(destNum,nextHop,tempCost)
+            srcRouter.updateDest(destNum,nextHop,tempCost,numHops)
 
-        if minCost > 100:
+        if tempCost > 100:
             print "Count to infinity problem! End iteration."
             sys.exit()
 
@@ -204,7 +179,6 @@ def routingProtocol(netWork, numIterations, basicF, flag,poison=False, split=Fal
     print "--------------------------protocol end----------------------------"
     return Overallchanged
 
-
 def printNet(network,numIter,outFile):
     outFile.write("Round: %d\n"%numIter)
     print ("Round: %d"%numIter)
@@ -220,12 +194,13 @@ def printDelay(outFile, delay, protocol):
 def increaseEventDelay(basicChange, splitChange, poisonChange ,eventDelay):
     if len(eventDelay) == 0:
         return;
-    if basicChange:
-        eventDelay['basic'] += 1
-    if splitChange:
-        eventDelay['split'] += 1
-    if poisonChange:
-        eventDelay['poison'] += 1
+    else:
+        if basicChange:
+            eventDelay['basic'] += 1
+        if splitChange:
+            eventDelay['split'] += 1
+        if poisonChange:
+            eventDelay['poison'] += 1
     return eventDelay
 
 def programStart(argv):
@@ -259,13 +234,14 @@ def programStart(argv):
     converged = False
     eventlist_counter = 0
     eventDelay={}
-    OverallchangedBasic = False
-    OverallchangedSplit = False
-    OverallchangedPoison = False
+    OverallchangedBasic = True
+    OverallchangedSplit = True
+    OverallchangedPoison = True
 
     while not converged or numIterations <= max_event:
         event_trigger = False
         if (numIterations in roundlist):
+            # if event triggered, we only do cost updates and r1,r2 dv updates
             roundNum = eventlist[eventlist_counter][0]
             r1 = eventlist[eventlist_counter][1]
             r2 = eventlist[eventlist_counter][2]
@@ -284,7 +260,7 @@ def programStart(argv):
                 netWorksplit[r2].rmAdj(r1)
                 netWorkpoison[r1].rmAdj(r2)
                 netWorkpoison[r2].rmAdj(r1)
-            print r1, r2, newCost
+            print "event:", "router1:", r1,"router2:", r2,"newcost:", newCost
             eventlist_counter+=1
             event_trigger = True
 
@@ -293,10 +269,13 @@ def programStart(argv):
             eventDelay['split'] = 0
             eventDelay['poison'] = 0
 
+            OverallchangedBasic = True
+            OverallchangedSplit = True
+            OverallchangedPoison = True
             converged = False
 
             # recalculate dv for r1 and r2
-            print "--------------------------recalculate-----------------------------"
+            print "------------------------round ", numIterations," recalculate---------------------"
             calculateDV(deepcopy(netWorkbasic),netWorkbasic,netWorkbasic[r1])
             calculateDV(deepcopy(netWorkbasic),netWorkbasic,netWorkbasic[r2])
             calculateDV(deepcopy(netWorksplit),netWorksplit,netWorksplit[r1], split=True)
@@ -304,17 +283,17 @@ def programStart(argv):
             calculateDV(deepcopy(netWorkpoison),netWorkpoison,netWorkpoison[r1], poison=True)
             calculateDV(deepcopy(netWorkpoison),netWorkpoison,netWorkpoison[r2], poison=True)
             print "--------------------------finish recalculation--------------------"
-
-        OverallchangedBasic = routingProtocol(netWorkbasic, numIterations, basicF, flag)
-        OverallchangedSplit = routingProtocol(netWorksplit, numIterations, splitF, flag,split=True)
-        OverallchangedPoison = routingProtocol(netWorkpoison, numIterations, reverse, flag, poison=True)
-        print "overall changed basic: ", OverallchangedBasic
-        print "overall changed split: ", OverallchangedSplit
-        print "overall changed poison: ", OverallchangedPoison
-
-        if not (OverallchangedBasic or OverallchangedPoison or OverallchangedSplit):
-            converged = True
-
+        else:
+            # if not event trigger we are normally doing routing protocols
+            OverallchangedBasic = routingProtocol(netWorkbasic, numIterations, basicF, flag)
+            OverallchangedSplit = routingProtocol(netWorksplit, numIterations, splitF, flag,split=True)
+            OverallchangedPoison = routingProtocol(netWorkpoison, numIterations, reverse, flag, poison=True)
+            print "overall changed basic: ", OverallchangedBasic
+            print "overall changed split: ", OverallchangedSplit
+            print "overall changed poison: ", OverallchangedPoison
+            print "------------------------round ", numIterations, " finished------------------------" 
+            if not (OverallchangedBasic or OverallchangedPoison or OverallchangedSplit):
+                converged = True
 
         numIterations += 1
         # if there are any value in event delay, we increase the iteration number in event delay
